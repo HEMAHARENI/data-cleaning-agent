@@ -1,0 +1,14 @@
+{
+  "name": "data-cleaning-agent-ui",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "styled-components": "^6.0.4",
+    "react-icons": "^4.11.0"
+  },
+  "scripts": {
+    "start": "react-scripts start"
+  }
+}
