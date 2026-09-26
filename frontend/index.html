@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DataGuard — Data Quality Pipeline</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z' fill='%232f6fed'/><path d='m10.5 16 4 4 7-8' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z" fill="var(--accent)"/><path d="m10.5 16 4 4 7-8" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div>
+        <strong>DataGuard</strong>
+        <span>Automated data quality &amp; integrity checks</span>
+      </div>
+    </div>
+    <div class="top-right">
+      <div id="clusterPill" class="pill" title="Dask cluster status">Dask: …</div>
+      <button id="historyBtn" class="btn ghost small" type="button">Job history</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- STEP 1: DATA -->
+    <section class="card" id="stepData">
+      <div class="card-head">
+        <span class="step-num">1</span>
+        <div><h2>Load a dataset</h2><p class="muted">CSV, TSV, Parquet, JSON/JSONL or Excel — also .gz / .zip compressed. Files above <b id="thrLabel">100</b> MB are processed on a Dask cluster automatically.</p></div>
+      </div>
+      <div class="data-grid">
+        <label id="dropzone" class="dropzone" for="fileInput">
+          <input id="fileInput" type="file" accept=".csv,.tsv,.txt,.parquet,.json,.jsonl,.xlsx,.xls,.gz,.bz2,.xz,.zip" hidden />
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <strong>Drop a file here or click to browse</strong>
+          <span class="muted" id="uploadStatus">Nothing uploaded yet</span>
+          <div class="upload-bar" hidden><div id="uploadFill"></div></div>
+        </label>
+        <div class="sample-box">
+          <h3>No data handy?</h3>
+          <p class="muted">Generate a deliberately messy customer dataset: bad headers, stray whitespace, casing variants, “N/A” tokens, mixed date formats, “$52,000” numbers, outliers, exact and near duplicates.</p>
+          <div class="row">
+            <select id="sampleRows" aria-label="Sample size">
+              <option value="5000">5,000 rows (~0.5 MB) → Pandas</option>
+              <option value="100000">100,000 rows (~10 MB) → Pandas</option>
+              <option value="1200000">1,200,000 rows (~115 MB) → Dask</option>
+            </select>
+            <button id="sampleBtn" class="btn" type="button">Generate</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="datasetInfo" hidden>
+        <div class="dataset-bar">
+          <div><span class="muted">File</span><strong id="dsName"></strong></div>
+          <div><span class="muted">Size</span><strong id="dsSize"></strong></div>
+          <div><span class="muted">Columns</span><strong id="dsCols"></strong></div>
+          <div class="engine-box"><span class="muted">Engine (auto)</span><strong id="dsEngine" class="badge"></strong><small id="dsEngineReason" class="muted"></small></div>
+        </div>
+        <details class="fold" open>
+          <summary>Detected schema &amp; raw preview</summary>
+          <div class="schema" id="schemaList"></div>
+          <div class="table-wrap"><table id="rawPreview" class="grid"></table></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- STEP 2: CONFIG -->
+    <section class="card" id="stepConfig" aria-disabled="true">
+      <div class="card-head">
+        <span class="step-num">2</span>
+        <div><h2>Configure checks</h2><p class="muted">Defaults work well; every step can be tuned. Column names below are the standardised (snake_case) names.</p></div>
+      </div>
+
+      <div class="config-grid">
+        <fieldset>
+          <legend>Engine &amp; output</legend>
+          <label>Execution engine
+            <select id="cfgEngine"><option value="auto">Auto (size-based switch)</option><option value="pandas">Force Pandas</option><option value="dask">Force Dask cluster</option></select>
+          </label>
+          <label>Output format
+            <select id="cfgFormat"><option value="csv">CSV</option><option value="parquet">Parquet</option></select>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Normalization</legend>
+          <label class="check"><input type="checkbox" id="cfgStdCols" checked /> Standardise column names</label>
+          <label class="check"><input type="checkbox" id="cfgCoerce" checked /> Infer &amp; coerce types (numbers, dates, booleans)</label>
+          <label class="check"><input type="checkbox" id="cfgCanon" checked /> Unify category spellings/casing</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Duplicates</legend>
+          <label class="check"><input type="checkbox" id="cfgExact" checked /> Remove exact duplicate rows</label>
+          <label class="check"><input type="checkbox" id="cfgNear" checked /> Remove near-duplicates (case/space/punctuation)</label>
+          <label class="check"><input type="checkbox" id="cfgIgnoreIds" /> Ignore ID columns when matching near-duplicates</label>
+          <label>Business key columns <small class="muted">(optional)</small>
+            <div id="keyChips" class="chips"></div>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Outliers</legend>
+          <label class="check"><input type="checkbox" id="cfgOutliers" checked /> Detect outliers in numeric columns</label>
+          <div class="two">
+            <label>Method
+              <select id="cfgMethod"><option value="iqr">IQR fence</option><option value="zscore">Z-score</option><option value="mad">Robust MAD</option></select>
+            </label>
+            <label>Action
+              <select id="cfgAction"><option value="cap">Cap (winsorise)</option><option value="null">Set missing → impute</option><option value="remove">Remove rows</option><option value="flag">Flag only</option></select>
+            </label>
+          </div>
+          <label>Threshold <small class="muted" id="thrHint">(k = 3.0 for IQR)</small>
+            <input type="number" id="cfgK" step="0.1" min="0.5" placeholder="default" />
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Imputation</legend>
+          <label class="check"><input type="checkbox" id="cfgImpute" checked /> Impute missing values</label>
+          <label>Default strategy
+            <select id="cfgStrategy"><option value="auto">Auto (mean/median by skew, mode for text)</option><option value="median">Median</option><option value="mean">Mean</option><option value="mode">Mode</option><option value="knn">KNN (Pandas only)</option></select>
+          </label>
+          <label>Drop columns missing more than <b id="dropVal">60%</b>
+            <input type="range" id="cfgDrop" min="0.1" max="1" step="0.05" value="0.6" />
+          </label>
+          <details class="fold small">
+            <summary>Per-column overrides</summary>
+            <div id="colStrategies" class="col-strats"></div>
+          </details>
+        </fieldset>
+
+        <fieldset class="wide">
+          <legend>Validation rules</legend>
+          <p class="muted small-text">Rows failing a rule are moved to a quarantine file (toggle below). Built-in checks always run: no missing values and no duplicate rows remain.</p>
+          <div id="rules"></div>
+          <div class="row">
+            <button id="addRule" class="btn ghost small" type="button">+ Add rule</button>
+            <button id="suggestRules" class="btn ghost small" type="button">Suggest rules from schema</button>
+            <label class="check push"><input type="checkbox" id="cfgQuarantine" checked /> Quarantine failing rows</label>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="run-row">
+        <button id="runBtn" class="btn primary" type="button" disabled>Run data-quality pipeline</button>
+        <span class="muted" id="runHint">Load a dataset first.</span>
+      </div>
+    </section>
+
+    <!-- STEP 3: PROGRESS -->
+    <section class="card" id="stepRun" hidden>
+      <div class="card-head">
+        <span class="step-num">3</span>
+        <div><h2>Pipeline run <span id="runEngine" class="badge"></span></h2><p class="muted" id="runSub"></p></div>
+      </div>
+      <ol class="stepper" id="stepper"></ol>
+      <div class="progress"><div id="progressFill"></div></div>
+      <pre id="logBox" class="log" aria-live="polite"></pre>
+    </section>
+
+    <!-- RESULTS -->
+    <section class="card" id="results" hidden>
+      <div class="card-head">
+        <span class="step-num">4</span>
+        <div><h2>Results</h2><p class="muted" id="resSub"></p></div>
+        <div class="downloads">
+          <a id="dlCleaned" class="btn primary small" href="#">Download validated data</a>
+          <a id="dlQuarantine" class="btn ghost small" href="#">Quarantined rows</a>
+          <a id="dlReport" class="btn ghost small" href="#">Report (JSON)</a>
+        </div>
+      </div>
+
+      <div class="score-row">
+        <div class="score-card" id="scoreBefore"></div>
+        <div class="score-arrow" aria-hidden="true">→</div>
+        <div class="score-card" id="scoreAfter"></div>
+        <div class="metric-bars" id="metricBars"></div>
+      </div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="issues" role="tab">Issues resolved</button>
+        <button class="tab" data-tab="columns" role="tab">Column profiles</button>
+        <button class="tab" data-tab="validation" role="tab">Validation</button>
+        <button class="tab" data-tab="preview" role="tab">Cleaned preview</button>
+        <button class="tab" data-tab="perf" role="tab">Performance</button>
+      </div>
+      <div class="tab-panel" id="tab-issues">
+        <div class="row filter-row">
+          <select id="issueFilter"><option value="">All steps</option></select>
+          <input id="issueSearch" type="search" placeholder="Filter by column or issue…" />
+        </div>
+        <div class="table-wrap"><table class="grid" id="issuesTable"></table></div>
+      </div>
+      <div class="tab-panel" id="tab-columns" hidden><div class="table-wrap"><table class="grid" id="colsTable"></table></div></div>
+      <div class="tab-panel" id="tab-validation" hidden><div id="validationList"></div></div>
+      <div class="tab-panel" id="tab-preview" hidden><div class="table-wrap"><table class="grid" id="cleanPreview"></table></div></div>
+      <div class="tab-panel" id="tab-perf" hidden><div id="perfChart"></div><p class="muted small-text" id="perfNote"></p></div>
+    </section>
+  </main>
+
+  <aside id="history" class="drawer" hidden>
+    <div class="drawer-head"><h3>Job history</h3><button id="closeHistory" class="btn ghost small" type="button">Close</button></div>
+    <div id="historyList"></div>
+  </aside>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

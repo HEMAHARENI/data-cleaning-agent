@@ -1,0 +1,8 @@
+[
+  {"column": "fare_amount", "rule": "range", "min": 0},
+  {"column": "total_amount", "rule": "range", "min": 0},
+  {"column": "trip_distance", "rule": "range", "min": 0, "max": 200},
+  {"column": "passenger_count", "rule": "range", "min": 1, "max": 6},
+  {"column": "tpep_pickup_datetime", "rule": "range", "min": "2021-01-01", "max": "2021-01-31 23:59:59"},
+  {"column": "tpep_pickup_datetime", "rule": "less_or_equal", "other": "tpep_dropoff_datetime"}
+]

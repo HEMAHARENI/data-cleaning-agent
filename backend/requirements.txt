@@ -1,0 +1,10 @@
+pandas>=2.2
+numpy>=1.26
+dask[dataframe,distributed]>=2024.8
+pyarrow>=15
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+scikit-learn>=1.4
+openpyxl>=3.1
+bokeh>=3.1          # Dask dashboard at :8787

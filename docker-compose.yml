@@ -1,0 +1,28 @@
+# App + a real Dask cluster (1 scheduler, 2 workers). All containers share /data,
+# so workers can read uploads and write the cleaned output directly.
+services:
+  scheduler:
+    build: .
+    command: dask scheduler --port 8786 --dashboard-address :8787
+    ports: ["8787:8787"]
+    volumes: [dqdata:/data]
+
+  worker:
+    build: .
+    command: dask worker tcp://scheduler:8786 --nworkers 1 --nthreads 2 --memory-limit 2GB
+    depends_on: [scheduler]
+    volumes: [dqdata:/data]
+    deploy:
+      replicas: 2
+
+  app:
+    build: .
+    environment:
+      DASK_SCHEDULER_ADDRESS: tcp://scheduler:8786
+      DQ_DASK_THRESHOLD_MB: "100"
+    ports: ["8000:8000"]
+    depends_on: [scheduler, worker]
+    volumes: [dqdata:/data]
+
+volumes:
+  dqdata:
